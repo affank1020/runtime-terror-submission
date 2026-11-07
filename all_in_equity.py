@@ -9,7 +9,6 @@ NOT confuse outright three-way win probability with multiway pot EV.
 import random
 
 from card_utils import evaluate, full_deck
-from equity_engine import _normalize_range
 
 
 def hero_showdown_payout(contributed, folded, hands, board, button, hero_id):
@@ -56,7 +55,7 @@ def hero_showdown_payout(contributed, folded, hands, board, button, hero_id):
 
 def expected_call_payout(
     hand, board, contributed, folded, button, hero_id, cost,
-    samples=240, seed=0, opponent_range=None,
+    samples=240, seed=0,
 ):
     """Monte Carlo estimate of chips *received*, not outright win equity.
 
@@ -74,8 +73,6 @@ def expected_call_payout(
         seat for seat in range(len(contributed))
         if seat != hero_id and not folded[seat]
     ]
-    if opponent_range is not None and len(opponents) != 1:
-        raise ValueError("conditioned all-in range requires one opponent")
     final_contributed = list(contributed)
     final_contributed[hero_id] += cost
     known = set(hand) | set(board)
@@ -86,16 +83,9 @@ def expected_call_payout(
         raise ValueError("not enough unexposed cards to sample")
 
     rng = random.Random(seed)
-    distribution = (_normalize_range(opponent_range, deck)
-                    if opponent_range is not None else None)
     payout = 0
     for _ in range(samples):
-        if distribution is None:
-            drawn = rng.sample(deck, draw_count)
-        else:
-            pair = distribution.draw(rng)
-            future = rng.sample([card for card in deck if card not in pair], remaining_board)
-            drawn = future + list(pair)
+        drawn = rng.sample(deck, draw_count)
         completed_board = list(board) + drawn[:remaining_board]
         hands = [() for _ in contributed]
         hands[hero_id] = hand
